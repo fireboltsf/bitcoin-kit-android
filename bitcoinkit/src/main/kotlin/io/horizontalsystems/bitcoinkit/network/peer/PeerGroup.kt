@@ -4,18 +4,15 @@ import io.horizontalsystems.bitcoinkit.managers.ConnectionManager
 import io.horizontalsystems.bitcoinkit.models.InventoryItem
 import io.horizontalsystems.bitcoinkit.models.NetworkAddress
 import io.horizontalsystems.bitcoinkit.network.Network
-import io.horizontalsystems.bitcoinkit.network.peer.task.PeerTask
 import java.net.InetAddress
-import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.BlockingQueue
-import java.util.concurrent.Executors
 import java.util.logging.Logger
 
 class PeerGroup(
         private val hostManager: PeerAddressManager,
         private val network: Network,
         private val peerManager: PeerManager,
-        private val peerSize: Int) : Thread(), Peer.Listener {
+        private val peerSize: Int,
+        private val peerTaskManager: PeerTaskManager) : Thread(), Peer.Listener {
 
     interface IPeerGroupListener {
         fun onStart() = Unit
@@ -23,38 +20,19 @@ class PeerGroup(
         fun onPeerCreate(peer: Peer) = Unit
         fun onPeerConnect(peer: Peer) = Unit
         fun onPeerDisconnect(peer: Peer, e: Exception?) = Unit
-        fun onPeerReady(peer: Peer) = Unit
     }
 
     var connectionManager: ConnectionManager? = null
 
     var inventoryItemsHandler: IInventoryItemsHandler? = null
-    var peerTaskHandler: IPeerTaskHandler? = null
 
     @Volatile
     private var running = false
     private val logger = Logger.getLogger("PeerGroup")
-    private val peersQueue = Executors.newSingleThreadExecutor()
-    private val taskQueue: BlockingQueue<PeerTask> = ArrayBlockingQueue(10)
     private val peerGroupListeners = mutableListOf<IPeerGroupListener>()
 
     fun addPeerGroupListener(listener: IPeerGroupListener) {
         peerGroupListeners.add(listener)
-    }
-
-    fun someReadyPeers(): List<Peer> {
-        return peerManager.someReadyPeers()
-    }
-
-    @Throws
-    fun checkPeersSynced() {
-        if (peerManager.peersCount() < 1) {
-            throw Error("No peers connected")
-        }
-
-        if (!peerManager.isHalfSynced()) {
-            throw Error("Peers not synced yet")
-        }
     }
 
     fun close() {
@@ -102,17 +80,6 @@ class PeerGroup(
         peerGroupListeners.forEach { it.onPeerConnect(peer) }
     }
 
-    override fun onReady(peer: Peer) {
-        peersQueue.execute {
-            peerGroupListeners.forEach { it.onPeerReady(peer) }
-
-//            todo check if peer is not syncPeer
-            taskQueue.poll()?.let {
-                peer.addTask(it)
-            }
-        }
-    }
-
     override fun onDisconnect(peer: Peer, e: Exception?) {
         peerManager.remove(peer)
 
@@ -142,10 +109,6 @@ class PeerGroup(
         hostManager.addIps(peerIps.toTypedArray())
     }
 
-    override fun onTaskComplete(peer: Peer, task: PeerTask) {
-        peerTaskHandler?.handleCompletedTask(peer, task)
-    }
-
     //
     // Private methods
     //
@@ -154,24 +117,12 @@ class PeerGroup(
         val ip = hostManager.getIp()
         if (ip != null) {
             logger.info("Try open new peer connection to $ip...")
-            val peer = Peer(ip, network, this)
+            val peer = Peer(ip, network, this, peerTaskManager)
             peerGroupListeners.forEach { it.onPeerCreate(peer) }
             peer.start()
         } else {
             logger.info("No peers found yet.")
         }
-    }
-
-    fun addTask(peerTask: PeerTask) {
-        // todo find better solution
-        val peer = peerManager.someReadyPeers().firstOrNull()
-
-        if (peer == null) {
-            taskQueue.add(peerTask)
-        } else {
-            peer.addTask(peerTask)
-        }
-
     }
 
     //

@@ -94,7 +94,7 @@ class DashKit : AbstractKit, BitcoinCore.Listener {
         val masternodeCbTxHasher = MasternodeCbTxHasher(CoinbaseTransactionSerializer(), merkleRootHasher)
 
         val masternodeListManager = MasternodeListManager(storage, masternodeListMerkleRootCalculator, masternodeCbTxHasher, MerkleBranch(), MasternodeSortedList())
-        val masterNodeSyncer = MasternodeListSyncer(bitcoinCore.peerGroup, PeerTaskFactory(), masternodeListManager)
+        val masterNodeSyncer = MasternodeListSyncer(bitcoinCore.peerTaskManager, PeerTaskFactory(), masternodeListManager)
         bitcoinCore.addPeerTaskHandler(masterNodeSyncer)
 
         this.masterNodeSyncer = masterNodeSyncer

@@ -142,13 +142,13 @@ class BitcoinCoreBuilder {
 
         val peerManager = PeerManager()
 
-        val peerGroup = PeerGroup(peerHostManager, network, peerManager, peerSize)
+        val peerTaskManager = PeerTaskManager(peerManager)
+        val peerGroup = PeerGroup(peerHostManager, network, peerManager, peerSize, peerTaskManager)
         peerGroup.connectionManager = connectionManager
 
         val transactionSyncer = TransactionSyncer(storage, transactionProcessor, addressManager, bloomFilterManager)
 
-        val transactionSender = TransactionSender()
-        transactionSender.peerGroup = peerGroup
+        val transactionSender = TransactionSender(peerManager)
         transactionSender.transactionSyncer = transactionSyncer
 
         val transactionBuilder = TransactionBuilder(addressConverter, hdWallet, network, addressManager, unspentOutputProvider)
@@ -178,9 +178,10 @@ class BitcoinCoreBuilder {
         kitStateProvider.listener = bitcoinCore
 
         bitcoinCore.peerGroup = peerGroup
+        bitcoinCore.peerTaskManager = peerTaskManager
         bitcoinCore.transactionSyncer = transactionSyncer
 
-        peerGroup.peerTaskHandler = bitcoinCore.peerTaskHandlerChain
+        peerTaskManager.peerTaskHandler = bitcoinCore.peerTaskHandlerChain
         peerGroup.inventoryItemsHandler = bitcoinCore.inventoryItemsHandlerChain
         Message.Builder.messageParser = bitcoinCore.messageParserChain
 
@@ -223,6 +224,7 @@ class BitcoinCore(private val storage: IStorage, private val dataProvider: DataP
 
     // START: Extending
     lateinit var peerGroup: PeerGroup
+    lateinit var peerTaskManager: PeerTaskManager
     lateinit var transactionSyncer: TransactionSyncer
 
     val inventoryItemsHandlerChain = InventoryItemsHandlerChain()

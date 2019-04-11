@@ -1,17 +1,17 @@
 package io.horizontalsystems.bitcoinkit.transactions
 
 import io.horizontalsystems.bitcoinkit.network.peer.PeerGroup
+import io.horizontalsystems.bitcoinkit.network.peer.PeerManager
 import io.horizontalsystems.bitcoinkit.network.peer.task.SendTransactionTask
 
-class TransactionSender {
+class TransactionSender(private var peerManager: PeerManager) {
     var transactionSyncer: TransactionSyncer? = null
-    var peerGroup: PeerGroup? = null
 
     fun sendPendingTransactions() {
         try {
-            peerGroup?.checkPeersSynced()
+            canSendTransaction()
 
-            peerGroup?.someReadyPeers()?.forEach { peer ->
+            peerManager.someReadyPeers().forEach { peer ->
                 transactionSyncer?.getPendingTransactions()?.forEach { pendingTransaction ->
                     peer.addTask(SendTransactionTask(pendingTransaction))
                 }
@@ -24,8 +24,16 @@ class TransactionSender {
 
     }
 
+    @Throws
     fun canSendTransaction() {
-        peerGroup?.checkPeersSynced()
+        if (peerManager.peersCount() < 1) {
+            throw PeerGroup.Error("No peers connected")
+        }
+
+        if (!peerManager.isHalfSynced()) {
+            throw PeerGroup.Error("Peers not synced yet")
+        }
+
     }
 
 }

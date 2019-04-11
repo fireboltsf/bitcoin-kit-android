@@ -74,8 +74,10 @@ class InitialBlockDownload(private var blockSyncer: BlockSyncer?,
     }
 
     override fun onPeerReady(peer: Peer) {
-        if (peer == syncPeer) {
-            downloadBlockchain()
+        peersQueue.execute {
+            if (peer == syncPeer) {
+                downloadBlockchain()
+            }
         }
     }
 

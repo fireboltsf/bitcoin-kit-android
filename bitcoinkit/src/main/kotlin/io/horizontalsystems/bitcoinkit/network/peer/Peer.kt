@@ -9,14 +9,17 @@ import io.horizontalsystems.bitcoinkit.network.peer.task.PeerTask
 import io.horizontalsystems.bitcoinkit.storage.FullTransaction
 import java.net.InetAddress
 
-class Peer(val host: String, private val network: Network, private val listener: Listener) : PeerConnection.Listener, PeerTask.Listener, PeerTask.Requester {
+class Peer(val host: String, private val network: Network, private val listener: Listener, private val taskListener: TaskListener) : PeerConnection.Listener, PeerTask.Listener, PeerTask.Requester {
 
     interface Listener {
         fun onConnect(peer: Peer)
-        fun onReady(peer: Peer)
         fun onDisconnect(peer: Peer, e: Exception?)
         fun onReceiveInventoryItems(peer: Peer, inventoryItems: List<InventoryItem>)
         fun onReceiveAddress(addrs: Array<NetworkAddress>)
+    }
+
+    interface TaskListener {
+        fun onReady(peer: Peer)
         fun onTaskComplete(peer: Peer, task: PeerTask)
     }
 
@@ -144,14 +147,14 @@ class Peer(val host: String, private val network: Network, private val listener:
     override fun onTaskCompleted(task: PeerTask) {
         tasks.find { it == task }?.let { completedTask ->
             tasks.remove(completedTask)
-            listener.onTaskComplete(this, task)
+            taskListener.onTaskComplete(this, task)
         }
 
         // Reset timer for the next task in list
         tasks.firstOrNull()?.resetTimer()
 
         if (tasks.isEmpty()) {
-            listener.onReady(this)
+            taskListener.onReady(this)
         }
     }
 
