@@ -1,10 +1,7 @@
 package io.horizontalsystems.bitcoinkit
 
 import android.content.Context
-import io.horizontalsystems.bitcoinkit.blocks.BlockSyncer
-import io.horizontalsystems.bitcoinkit.blocks.Blockchain
-import io.horizontalsystems.bitcoinkit.blocks.BloomFilterLoader
-import io.horizontalsystems.bitcoinkit.blocks.InitialBlockDownload
+import io.horizontalsystems.bitcoinkit.blocks.*
 import io.horizontalsystems.bitcoinkit.blocks.validators.BlockValidatorChain
 import io.horizontalsystems.bitcoinkit.blocks.validators.IBlockValidator
 import io.horizontalsystems.bitcoinkit.blocks.validators.ProofOfWorkValidator
@@ -197,7 +194,7 @@ class BitcoinCoreBuilder {
         bloomFilterManager.listener = bloomFilterLoader
         bitcoinCore.addPeerGroupListener(bloomFilterLoader)
 
-        val initialBlockDownload = InitialBlockDownload(BlockSyncer(storage, Blockchain(storage, bitcoinCore.blockValidatorChain, dataProvider), transactionProcessor, addressManager, bloomFilterManager, kitStateProvider, network), peerManager, kitStateProvider)
+        val initialBlockDownload = InitialBlockDownload(BlockSyncer(storage, Blockchain(storage, bitcoinCore.blockValidatorChain, dataProvider), transactionProcessor, addressManager, bloomFilterManager, kitStateProvider, network), peerManager, kitStateProvider, MerkleBlockExtractor(network.maxBlockSize))
         bitcoinCore.addPeerTaskHandler(initialBlockDownload)
         bitcoinCore.addInventoryItemsHandler(initialBlockDownload)
         bitcoinCore.addPeerGroupListener(initialBlockDownload)

@@ -12,7 +12,8 @@ import java.util.logging.Logger
 
 class InitialBlockDownload(private var blockSyncer: BlockSyncer?,
                            private val peerManager: PeerManager,
-                           private val syncStateListener: ISyncStateListener
+                           private val syncStateListener: ISyncStateListener,
+                           private val merkleBlockExtractor: MerkleBlockExtractor
 ) : IInventoryItemsHandler, IPeerTaskHandler, PeerGroup.IPeerGroupListener, GetMerkleBlocksTask.MerkleBlockHandler {
 
     var peersSyncedListener: IAllPeersSyncedListener? = null
@@ -114,7 +115,7 @@ class InitialBlockDownload(private var blockSyncer: BlockSyncer?,
                 if (blockHashes.isEmpty()) {
                     peer.synced = peer.blockHashesSynced
                 } else {
-                    peer.addTask(GetMerkleBlocksTask(blockHashes, this))
+                    peer.addTask(GetMerkleBlocksTask(blockHashes, this, merkleBlockExtractor))
                 }
 
                 if (!peer.blockHashesSynced) {

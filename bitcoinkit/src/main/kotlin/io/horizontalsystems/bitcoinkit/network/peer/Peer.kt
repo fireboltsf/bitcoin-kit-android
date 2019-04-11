@@ -1,7 +1,5 @@
 package io.horizontalsystems.bitcoinkit.network.peer
 
-import io.horizontalsystems.bitcoinkit.blocks.InvalidMerkleBlockException
-import io.horizontalsystems.bitcoinkit.blocks.MerkleBlockExtractor
 import io.horizontalsystems.bitcoinkit.crypto.BloomFilter
 import io.horizontalsystems.bitcoinkit.models.InventoryItem
 import io.horizontalsystems.bitcoinkit.models.NetworkAddress
@@ -29,7 +27,6 @@ class Peer(val host: String, private val network: Network, private val listener:
     var announcedLastBlockHeight: Int = 0
     var localBestBlockHeight: Int = 0
 
-    private val merkleBlockExtractor = MerkleBlockExtractor(network.maxBlockSize)
     private val peerConnection = PeerConnection(host, network, this)
     private var tasks = mutableListOf<PeerTask>()
     private val timer = PeerTimer()
@@ -90,14 +87,7 @@ class Peer(val host: String, private val network: Network, private val listener:
 
         when (message) {
             is PingMessage -> peerConnection.sendMessage(PongMessage(message.nonce))
-            is PongMessage -> handlePongMessage(message)
             is AddrMessage -> handleAddrMessage(message)
-            is MerkleBlockMessage -> try {
-                handleMerkleBlockMessage(message)
-            } catch (e: InvalidMerkleBlockException) {
-                peerConnection.close(e)
-            }
-            is TransactionMessage -> handleTransactionMessage(message)
             is InvMessage -> handleInvMessage(message)
             is GetDataMessage -> {
                 for (inv in message.inventory) {
@@ -203,18 +193,6 @@ class Peer(val host: String, private val network: Network, private val listener:
         if (tasks.none { it.handleInventoryItems(message.inventory) }) {
             listener.onReceiveInventoryItems(this, message.inventory)
         }
-    }
-
-    private fun handleMerkleBlockMessage(message: MerkleBlockMessage) {
-        val merkleBlock = merkleBlockExtractor.extract(message)
-        tasks.any { it.handleMerkleBlock(merkleBlock) }
-    }
-
-    private fun handleTransactionMessage(message: TransactionMessage) {
-        tasks.any { it.handleTransaction(message.transaction) }
-    }
-
-    private fun handlePongMessage(message: PongMessage) {
     }
 
     open class Error(message: String) : Exception(message) {

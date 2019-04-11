@@ -1,7 +1,6 @@
 package io.horizontalsystems.bitcoinkit.network.peer.task
 
 import io.horizontalsystems.bitcoinkit.models.InventoryItem
-import io.horizontalsystems.bitcoinkit.models.MerkleBlock
 import io.horizontalsystems.bitcoinkit.network.messages.Message
 import io.horizontalsystems.bitcoinkit.storage.FullTransaction
 import java.util.*
@@ -28,14 +27,6 @@ open class PeerTask {
     protected var allowedIdleTime: Long? = null
 
     open fun start() = Unit
-
-    open fun handleMerkleBlock(merkleBlock: MerkleBlock): Boolean {
-        return false
-    }
-
-    open fun handleTransaction(transaction: FullTransaction): Boolean {
-        return false
-    }
 
     open fun handleGetDataInventoryItem(item: InventoryItem): Boolean {
         return false

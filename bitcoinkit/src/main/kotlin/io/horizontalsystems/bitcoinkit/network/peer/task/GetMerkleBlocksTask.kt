@@ -1,13 +1,18 @@
 package io.horizontalsystems.bitcoinkit.network.peer.task
 
+import io.horizontalsystems.bitcoinkit.blocks.InvalidMerkleBlockException
+import io.horizontalsystems.bitcoinkit.blocks.MerkleBlockExtractor
 import io.horizontalsystems.bitcoinkit.core.toHexString
 import io.horizontalsystems.bitcoinkit.models.BlockHash
 import io.horizontalsystems.bitcoinkit.models.InventoryItem
 import io.horizontalsystems.bitcoinkit.models.MerkleBlock
+import io.horizontalsystems.bitcoinkit.network.messages.MerkleBlockMessage
+import io.horizontalsystems.bitcoinkit.network.messages.Message
+import io.horizontalsystems.bitcoinkit.network.messages.TransactionMessage
 import io.horizontalsystems.bitcoinkit.storage.FullTransaction
 import java.util.concurrent.TimeUnit
 
-class GetMerkleBlocksTask(hashes: List<BlockHash>, private val merkleBlockHandler: MerkleBlockHandler) : PeerTask() {
+class GetMerkleBlocksTask(hashes: List<BlockHash>, private val merkleBlockHandler: MerkleBlockHandler, private val merkleBlockExtractor: MerkleBlockExtractor) : PeerTask() {
 
     interface MerkleBlockHandler {
         fun handleMerkleBlock(merkleBlock: MerkleBlock)
@@ -29,24 +34,40 @@ class GetMerkleBlocksTask(hashes: List<BlockHash>, private val merkleBlockHandle
         resetTimer()
     }
 
-    override fun handleMerkleBlock(merkleBlock: MerkleBlock): Boolean {
-        val blockHash = blockHashes.find { merkleBlock.blockHash.contentEquals(it.headerHash) }
-                ?: return false
-
-        resetTimer()
-
-        merkleBlock.height = if (blockHash.height > 0) blockHash.height else null
-
-        if (merkleBlock.complete) {
-            handleCompletedMerkleBlock(merkleBlock)
-        } else {
-            pendingMerkleBlocks.add(merkleBlock)
+    override fun handleMessage(message: Message): Boolean {
+        return when (message) {
+            is TransactionMessage -> handleTransaction(message.transaction)
+            is MerkleBlockMessage -> handleMerkleBlock(message)
+            else -> false
         }
-
-        return true
     }
 
-    override fun handleTransaction(transaction: FullTransaction): Boolean {
+    private fun handleMerkleBlock(message: MerkleBlockMessage): Boolean {
+        try {
+            val merkleBlock = merkleBlockExtractor.extract(message)
+
+            val blockHash = blockHashes.find { merkleBlock.blockHash.contentEquals(it.headerHash) }
+                    ?: return false
+
+            resetTimer()
+
+            merkleBlock.height = if (blockHash.height > 0) blockHash.height else null
+
+            if (merkleBlock.complete) {
+                handleCompletedMerkleBlock(merkleBlock)
+            } else {
+                pendingMerkleBlocks.add(merkleBlock)
+            }
+
+            return true
+
+        } catch (e: InvalidMerkleBlockException) {
+            listener?.onTaskFailed(this, e)
+            return true
+        }
+    }
+
+    private fun handleTransaction(transaction: FullTransaction): Boolean {
         val block = pendingMerkleBlocks.find { it.associatedTransactionHexes.contains(transaction.header.hash.toHexString()) }
                 ?: return false
 
