@@ -191,7 +191,7 @@ class BitcoinCoreBuilder {
 
         bitcoinCore.addMessageParser(BitcoinMessageParser())
 
-        val bloomFilterLoader = BloomFilterLoader(bloomFilterManager)
+        val bloomFilterLoader = BloomFilterLoader(bloomFilterManager, peerManager)
         bloomFilterManager.listener = bloomFilterLoader
         bitcoinCore.addPeerGroupListener(bloomFilterLoader)
 
